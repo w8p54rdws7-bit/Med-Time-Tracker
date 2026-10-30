@@ -17,10 +17,10 @@
  * See README.md for the full walkthrough with every click.
  */
 export const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  appId: "",
+  apiKey: "AIzaSyB77Uj-JiJG7DTj5THE36IYryp0PwOHNVY",
+  authDomain: "met-time-tracker.firebaseapp.com",
+  projectId: "met-time-tracker",
+  appId: "1:243876342932:web:96ea1d3cb0fc6667cd1881",
 };
 
 /* Firestore SDK version pinned for offline caching. Bump only if needed. */
