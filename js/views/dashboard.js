@@ -3,10 +3,10 @@
  * changes only when data changes (cards, chips, buttons) re-renders via state. */
 
 import { h, clear } from "../util/dom.js";
-import { medStatus, byUrgency, fmtClock, sortedTimes, now } from "../util/time.js";
+import { medStatus, byUrgency, fmtClock, fmtDuration, sortedTimes, now } from "../util/time.js";
 import { onTick } from "../clock.js";
 import { PERSON_COLORS } from "../util/id.js";
-import { state, setFilter, activeMeds, personById, takeDose, undoDose, addPerson } from "../state.js";
+import { state, setFilter, activeMeds, personById, takeDose, undoDose, addPerson, saveMed } from "../state.js";
 import { navigate } from "../router.js";
 import { toast, emptyState } from "./components.js";
 
@@ -105,6 +105,8 @@ function medCard(med) {
   const t = now();
   const st = medStatus(med, state.doses, t);
   const person = personById(med.personId);
+  const showLast = med.timerView === "last";
+  const texts = displayTexts(med, st, t);
   const card = h("div", {
     class: "medcard",
     dataset: { med: med.id, state: st.state },
@@ -118,12 +120,17 @@ function medCard(med) {
 
   if (med.dosage) card.appendChild(h("div", { class: "medcard__dose" }, med.dosage));
 
-  const headline = h("span", { class: "countdown__headline" }, st.headline);
+  card.appendChild(h("div", { class: "viewtoggle" },
+    viewToggleBtn(med, "next", "Next dose", showLast),
+    viewToggleBtn(med, "last", "Since last", showLast),
+  ));
+
+  const headline = h("span", { class: "countdown__headline" }, texts.headline);
   const countdown = h("div", { class: "countdown" },
-    (st.state === "due" || st.state === "overdue") && h("span", { class: "pulse-dot" }),
+    wantsPulse(st, showLast) && h("span", { class: "pulse-dot" }),
     headline);
   card.appendChild(countdown);
-  card.appendChild(h("div", { class: "countdown__label" }, st.sub));
+  card.appendChild(h("div", { class: "countdown__label" }, texts.sub));
 
   if (med.scheduleType === "fixed" && sortedTimes(med).length) {
     card.appendChild(slotRow(med, st));
@@ -140,6 +147,33 @@ function medCard(med) {
   return card;
 }
 
+/* Big-line texts: countdown-to-next, or time-since-last when the card is
+ * flipped to the "Since last" view. */
+function displayTexts(med, st, t) {
+  if (med.timerView === "last") {
+    return st.lastDoseAt
+      ? { headline: `${fmtDuration(t - st.lastDoseAt)} ago`, sub: `Taken at ${fmtClock(st.lastDoseAt)}` }
+      : { headline: "No dose yet", sub: "Timer starts at the first dose" };
+  }
+  return { headline: st.headline, sub: st.sub };
+}
+
+function wantsPulse(st, showLast) {
+  return !showLast && (st.state === "due" || st.state === "overdue");
+}
+
+function viewToggleBtn(med, mode, label, showLast) {
+  const active = (mode === "last") === showLast;
+  return h("button", {
+    class: `viewtoggle__btn${active ? " viewtoggle__btn--active" : ""}`,
+    "aria-pressed": String(active),
+    onclick: () => {
+      if (active) return;
+      saveMed({ ...med, timerView: mode }).catch(() => toast("Could not save view — check connection"));
+    },
+  }, label);
+}
+
 function slotRow(med, st) {
   return h("div", { class: "slots" }, st.slots.map((s) =>
     h("span", {
@@ -153,10 +187,20 @@ function slotRow(med, st) {
 function patchCard(card, med, t) {
   const st = medStatus(med, state.doses, t);
   card.dataset.state = st.state;
+  const texts = displayTexts(med, st, t);
+  const countdown = card.querySelector(".countdown");
   const headline = card.querySelector(".countdown__headline");
   const label = card.querySelector(".countdown__label");
-  if (headline) headline.textContent = st.headline;
-  if (label) label.textContent = st.sub;
+  if (headline) headline.textContent = texts.headline;
+  if (label) label.textContent = texts.sub;
+
+  // keep the pulse dot matching the urgency state even when it changes between renders
+  if (countdown) {
+    const wantDot = wantsPulse(st, med.timerView === "last");
+    const dot = countdown.querySelector(".pulse-dot");
+    if (wantDot && !dot) countdown.insertBefore(h("span", { class: "pulse-dot" }), headline);
+    if (!wantDot && dot) dot.remove();
+  }
 
   const slots = card.querySelector(".slots");
   if (slots) {
