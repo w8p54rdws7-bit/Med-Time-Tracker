@@ -4,6 +4,8 @@ A medication tracker for households: live dose timers and full dose history, **i
 
 - **Two schedule types** — fixed daily times (e.g., 8:00 AM & 8:00 PM) and interval-based (e.g., every 6 hours from the last dose)
 - **Live countdowns** — "Next dose in 2h 14m", pulsing "Due now", red "Overdue by 43m"
+- **Per-med view toggle** — flip any card between the countdown and "how long since the last dose" ("3h 12m ago")
+- **Variable doses** — for meds like "1–2 tablets", enable *Amount varies* and the card gets a count picker (1 2 3 4 tablets) when logging; it remembers the last amount used
 - **One-tap Taken** with undo, synced to every device within ~a second
 - **Multiple people**, each color-coded, with their own medication list
 - **Dose history** grouped by day, plus a 7-day adherence strip per medication

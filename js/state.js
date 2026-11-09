@@ -220,16 +220,24 @@ export async function deleteMed(med) {
   await state.store.deleteMed(med.id);
 }
 
-export function takeDose(med) {
+/* Log a dose. `count` is the pill/unit count for variable-dose meds
+ * (e.g., 3 → "3 × 500 mg tablets"); omitted for fixed-dose meds. */
+export function takeDose(med, count = null) {
   const slot = med.scheduleType === "fixed" ? slotToLog(med, state.doses, Date.now()) : null;
+  const amount = count != null
+    ? (med.dosage ? `${count} × ${med.dosage}` : `${count} ${med.doseUnit || "doses"}`)
+    : (med.dosage || null);
   const dose = {
     id: randomId(14),
     medId: med.id,
     personId: med.personId,
     ts: Date.now(),
     slotKey: slot ? slotKeyFor(med.id, new Date(slot.dt), slot.hhmm) : null,
-    amount: med.dosage || null,
+    amount,
   };
+  if (count != null && med.lastCount !== count) {
+    saveMed({ ...med, lastCount: count }).catch(() => { /* preference write is best-effort */ });
+  }
   return state.store.logDose(dose).then(() => dose);
 }
 

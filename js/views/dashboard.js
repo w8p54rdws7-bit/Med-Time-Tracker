@@ -12,6 +12,10 @@ import { toast, emptyState } from "./components.js";
 
 let stopTick = null;
 
+/* Un-logged count selections per med (card-local, until Taken is tapped).
+ * After a dose lands, the med's lastCount takes over as the default. */
+const pendingCounts = new Map();
+
 export function render(content) {
   if (stopTick) { stopTick(); stopTick = null; }
 
@@ -136,6 +140,8 @@ function medCard(med) {
     card.appendChild(slotRow(med, st));
   }
 
+  if (med.variableDose) card.appendChild(doseCountRow(med));
+
   card.appendChild(h("div", { class: "medcard__actions" },
     h("button", {
       class: "btn btn--success",
@@ -145,6 +151,27 @@ function medCard(med) {
   ));
 
   return card;
+}
+
+/* Count picker for variable-dose meds: "1 2 3 4 tablets", defaulting to the
+ * last-used (or base) count. Selection updates in place, no re-render. */
+function doseCountRow(med) {
+  const max = Math.max(med.doseMax || 4, med.doseBase || 1, 1);
+  const selected = pendingCounts.get(med.id) ?? med.lastCount ?? med.doseBase ?? 1;
+  const chips = h("div", { class: "dosecount__chips" },
+    Array.from({ length: max }, (_, i) => i + 1).map((n) =>
+      h("button", {
+        class: `viewtoggle__btn${n === selected ? " viewtoggle__btn--active" : ""}`,
+        "aria-pressed": String(n === selected),
+        dataset: { count: String(n) },
+        onclick: (e) => {
+          pendingCounts.set(med.id, n);
+          for (const c of chips.querySelectorAll(".viewtoggle__btn--active")) c.classList.remove("viewtoggle__btn--active");
+          e.currentTarget.classList.add("viewtoggle__btn--active");
+        },
+      }, String(n))));
+  return h("div", { class: "dosecount" }, chips,
+    h("span", { class: "dosecount__unit" }, med.doseUnit || "doses"));
 }
 
 /* Big-line texts: countdown-to-next, or time-since-last when the card is
@@ -215,9 +242,13 @@ function patchCard(card, med, t) {
 }
 
 async function markTaken(med) {
+  const count = med.variableDose
+    ? (pendingCounts.get(med.id) ?? med.lastCount ?? med.doseBase ?? 1)
+    : null;
   try {
-    const dose = await takeDose(med);
-    toast(`${med.name} — dose logged`, {
+    const dose = await takeDose(med, count);
+    if (med.variableDose) pendingCounts.delete(med.id);
+    toast(`${med.name} — dose logged${dose.amount ? " (" + dose.amount + ")" : ""}`, {
       actionLabel: "Undo",
       onAction: async () => {
         try { await undoDose(dose.id); } catch (e) { toast("Undo failed — check connection"); }

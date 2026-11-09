@@ -123,6 +123,29 @@ export function render(_content, { id }) {
   const notesInput = h("textarea", { placeholder: "With food, refill date, pharmacy notes… (optional)", value: draft.notes || "" });
   const activeCheckbox = h("input", { type: "checkbox", checked: draft.active !== false, style: { width: "24px", height: "24px" } });
 
+  // ---- variable dosing: pick a pill count when logging ----
+  const varCheckbox = h("input", { type: "checkbox", checked: draft.variableDose === true, style: { width: "24px", height: "24px" } });
+  const baseCount = h("input", { type: "number", min: "1", max: "12", step: "1", value: draft.doseBase ?? 1 });
+  const unitInput = h("input", { type: "text", placeholder: "tablets", maxlength: "20", value: draft.doseUnit || "" });
+  const maxCount = h("input", { type: "number", min: "1", max: "12", step: "1", value: draft.doseMax ?? 4 });
+  const varPanel = h("div", { class: "inline-row", style: { marginTop: "10px" } },
+    h("div", { class: "field", style: { margin: 0, flex: "0 0 90px" } },
+      h("label", { class: "field__label" }, "Base"),
+      baseCount,
+    ),
+    h("div", { class: "field", style: { margin: 0 } },
+      h("label", { class: "field__label" }, "Unit"),
+      unitInput,
+    ),
+    h("div", { class: "field", style: { margin: 0, flex: "0 0 90px" } },
+      h("label", { class: "field__label" }, "Up to"),
+      maxCount,
+    ),
+  );
+  const syncVarPanel = () => { varPanel.style.display = varCheckbox.checked ? "" : "none"; };
+  varCheckbox.addEventListener("change", syncVarPanel);
+  syncVarPanel();
+
   body.append(
     h("div", { class: "field" },
       h("label", { class: "field__label" }, "Who takes it"),
@@ -136,6 +159,13 @@ export function render(_content, { id }) {
       h("label", { class: "field__label" }, "Dosage"),
       doseInput,
       h("div", { class: "field__hint" }, "Shown on every device next to the timer."),
+    ),
+    h("div", { class: "field" },
+      h("label", { class: "field__label" }, "Amount"),
+      h("label", { style: { display: "flex", alignItems: "center", gap: "10px", fontWeight: "600" } },
+        varCheckbox, "Varies — pick how many when logging"),
+      varPanel,
+      h("div", { class: "field__hint" }, "With this on, the card shows a count picker above the Taken button and remembers the last amount used."),
     ),
     h("div", { class: "field" },
       h("label", { class: "field__label" }, "Schedule"),
@@ -188,6 +218,13 @@ export function render(_content, { id }) {
     }
     draft.name = name;
     draft.dosage = doseInput.value.trim();
+    draft.variableDose = varCheckbox.checked;
+    if (draft.variableDose) {
+      const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+      draft.doseBase = clamp(Math.round(Number(baseCount.value) || 1), 1, 12);
+      draft.doseMax = clamp(Math.round(Number(maxCount.value) || draft.doseBase), draft.doseBase, 12);
+      draft.doseUnit = unitInput.value.trim() || "doses";
+    }
     draft.notes = notesInput.value.trim();
     draft.active = activeCheckbox.checked;
     try {

@@ -310,6 +310,11 @@ input, select, textarea {
   box-shadow: var(--shadow);
 }
 
+/* variable-dose count picker ("1 2 3 4 tablets") */
+.dosecount { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.dosecount__chips { display: inline-flex; gap: 3px; background: var(--surface-2); border-radius: 9px; padding: 3px; }
+.dosecount__unit { font-size: 13px; font-weight: 600; color: var(--muted); }
+
 /* today's fixed-schedule slots */
 .slots { display: flex; flex-wrap: wrap; gap: 7px; }
 .slot {
